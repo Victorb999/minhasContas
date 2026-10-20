@@ -1,15 +1,11 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useSyncExternalStore, useTransition } from "react";
 import { toast } from "sonner";
 import { CalendarDays, ChevronDown, Trash2 } from "lucide-react";
-import {
-  createTransaction,
-  deleteTransaction,
-  updateTransaction,
-  type TransactionInput,
-} from "@/app/actions";
+import { createTransaction, deleteTransaction, updateTransaction, type TransactionInput } from "@/app/actions";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { CategoryIcon } from "@/components/category-icon";
@@ -17,9 +13,23 @@ import { closeEditor, useEditor } from "@/components/editor-store";
 import { addDaysISO, formatBRL, formatShortDate, todayISO } from "@/lib/format";
 import type { CategoryDTO, Suggestion } from "@/lib/queries";
 import type { TxType } from "@/db/schema";
+import { safeAction } from "@/lib/safe-action";
 import { cn } from "@/lib/utils";
 
 const QUICK_CATEGORY_COUNT = 8;
+const DESKTOP_QUERY = "(min-width: 1024px)";
+
+function useIsDesktop() {
+  return useSyncExternalStore(
+    (onChange) => {
+      const mq = window.matchMedia(DESKTOP_QUERY);
+      mq.addEventListener("change", onChange);
+      return () => mq.removeEventListener("change", onChange);
+    },
+    () => window.matchMedia(DESKTOP_QUERY).matches,
+    () => false,
+  );
+}
 
 export function TransactionDrawer({
   categories,
@@ -29,29 +39,56 @@ export function TransactionDrawer({
   suggestions: Suggestion[];
 }) {
   const editor = useEditor();
+  const isDesktop = useIsDesktop();
+
+  const form = (variant: "drawer" | "dialog") => (
+    // key: reinicia o formulário a cada abertura
+    <TransactionForm
+      key={editor.nonce}
+      variant={variant}
+      tx={editor.tx}
+      initialType={editor.type}
+      categories={categories}
+      suggestions={suggestions}
+    />
+  );
+
+  // Desktop: janela centralizada. Celular: gaveta que sobe de baixo.
+  if (isDesktop) {
+    return (
+      <Dialog open={editor.open} onOpenChange={(o) => !o && closeEditor()}>
+        <DialogContent
+          className="flex max-h-[90dvh] flex-col gap-0 p-0 sm:max-w-md"
+          onOpenAutoFocus={(e) => {
+            // Novo lançamento já começa digitando o valor.
+            if (editor.tx) return;
+            e.preventDefault();
+            document.getElementById("amount")?.focus();
+          }}
+        >
+          {form("dialog")}
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Drawer open={editor.open} onOpenChange={(o) => !o && closeEditor()} repositionInputs={false}>
       <DrawerContent className="mx-auto max-w-lg data-[vaul-drawer-direction=bottom]:max-h-[92dvh]">
-        {/* key: reinicia o formulário a cada abertura */}
-        <TransactionForm
-          key={editor.nonce}
-          tx={editor.tx}
-          initialType={editor.type}
-          categories={categories}
-          suggestions={suggestions}
-        />
+        {form("drawer")}
       </DrawerContent>
     </Drawer>
   );
 }
 
 function TransactionForm({
+  variant,
   tx,
   initialType,
   categories,
   suggestions,
 }: {
+  variant: "drawer" | "dialog";
   tx: ReturnType<typeof useEditor>["tx"];
   initialType: TxType;
   categories: CategoryDTO[];
@@ -70,9 +107,7 @@ function TransactionForm({
 
   const typeCategories = useMemo(
     () =>
-      categories
-        .filter((c) => c.type === type && (!c.archived || c.id === categoryId))
-        .sort((a, b) => b.uses - a.uses),
+      categories.filter((c) => c.type === type && (!c.archived || c.id === categoryId)).sort((a, b) => b.uses - a.uses),
     [categories, type, categoryId],
   );
   const visibleCategories = useMemo(() => {
@@ -114,20 +149,23 @@ function TransactionForm({
 
     startTransition(async () => {
       if (tx) {
-        const res = await updateTransaction(tx.id, input);
+        const res = await safeAction(() => updateTransaction(tx.id, input));
         if (!res.ok) return setError(res.error);
         toast.success("Lançamento atualizado");
         closeEditor();
         return;
       }
-      const res = await createTransaction(input);
+      const res = await safeAction(() => createTransaction(input));
       if (!res.ok) return setError(res.error);
       closeEditor();
       toast.success(`${type === "expense" ? "Despesa" : "Receita"} de ${formatBRL(amountCents)} salva`, {
         description: input.name,
         action: {
           label: "Desfazer",
-          onClick: () => void deleteTransaction(res.id).then(() => toast("Lançamento removido")),
+          onClick: () =>
+            void safeAction(() => deleteTransaction(res.id)).then((r) =>
+              r.ok ? toast("Lançamento removido") : toast.error(r.error),
+            ),
         },
       });
     });
@@ -137,7 +175,7 @@ function TransactionForm({
     if (!tx) return;
     if (!confirmDelete) return setConfirmDelete(true);
     startTransition(async () => {
-      const res = await deleteTransaction(tx.id);
+      const res = await safeAction(() => deleteTransaction(tx.id));
       if (!res.ok) return setError(res.error);
       closeEditor();
       toast("Lançamento excluído");
@@ -145,13 +183,22 @@ function TransactionForm({
   }
 
   const isExpense = type === "expense";
+  const title = tx ? "Editar lançamento" : "Novo lançamento";
+  const description = "Informe valor, nome, categoria e data";
 
   return (
     <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
-      <DrawerHeader className="pb-2">
-        <DrawerTitle>{tx ? "Editar lançamento" : "Novo lançamento"}</DrawerTitle>
-        <DrawerDescription className="sr-only">Informe valor, nome, categoria e data</DrawerDescription>
-      </DrawerHeader>
+      {variant === "drawer" ? (
+        <DrawerHeader className="pb-2">
+          <DrawerTitle>{title}</DrawerTitle>
+          <DrawerDescription className="sr-only">{description}</DrawerDescription>
+        </DrawerHeader>
+      ) : (
+        <DialogHeader className="p-4 pb-2">
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription className="sr-only">{description}</DialogDescription>
+        </DialogHeader>
+      )}
 
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pb-4">
         {/* Tipo */}
@@ -303,18 +350,11 @@ function TransactionForm({
         </div>
       </div>
 
-      <div className="flex flex-col gap-2 border-t bg-popover px-4 pt-3 pb-[max(env(safe-area-inset-bottom),1rem)]">
+      <div className="flex flex-col gap-2 rounded-b-xl border-t bg-popover px-4 pt-3 pb-[max(env(safe-area-inset-bottom),1rem)]">
         {error && <p className="text-center text-sm text-destructive">{error}</p>}
         <div className="flex gap-2">
           {tx && (
-            <Button
-              type="button"
-              variant="destructive"
-              size="lg"
-              className="h-12"
-              onClick={remove}
-              disabled={pending}
-            >
+            <Button type="button" variant="destructive" size="lg" className="h-12" onClick={remove} disabled={pending}>
               <Trash2 />
               {confirmDelete ? "Confirmar" : null}
             </Button>

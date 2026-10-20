@@ -7,7 +7,13 @@ import { and, eq, max } from "drizzle-orm";
 import { z } from "zod";
 import { categories, getDb, transactions } from "@/db";
 import { requireAuth } from "@/lib/auth";
-import { SESSION_COOKIE, SESSION_MAX_AGE, checkPassword, createSessionToken } from "@/lib/session";
+import {
+  SESSION_COOKIE,
+  SESSION_MAX_AGE,
+  authConfigError,
+  checkPassword,
+  createSessionToken,
+} from "@/lib/session";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -21,7 +27,14 @@ function refreshAll() {
 
 export async function login(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   const password = String(formData.get("password") ?? "");
-  if (!(await checkPassword(password))) return fail("Senha incorreta");
+  if (!password) return fail("Digite a senha");
+  const configError = authConfigError();
+  if (configError) return fail(configError);
+  if (!(await checkPassword(password))) {
+    // Atraso pequeno para dificultar tentativas em massa.
+    await new Promise((r) => setTimeout(r, 600));
+    return fail("Senha incorreta. Tente de novo.");
+  }
   (await cookies()).set(SESSION_COOKIE, await createSessionToken(), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

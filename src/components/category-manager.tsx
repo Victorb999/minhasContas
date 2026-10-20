@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { CATEGORY_COLORS, CATEGORY_ICONS, CategoryIcon } from "@/components/category-icon";
 import type { CategoryDTO } from "@/lib/queries";
 import type { TxType } from "@/db/schema";
+import { safeAction } from "@/lib/safe-action";
 import { cn } from "@/lib/utils";
 
 type Draft = { id: number | null; name: string; type: TxType; color: string; icon: string; archived: boolean; uses: number };
@@ -30,7 +31,7 @@ export function CategoryManager({ categories }: { categories: CategoryDTO[] }) {
   function run(fn: () => Promise<{ ok: boolean; error?: string }>, success: string) {
     setError(null);
     startTransition(async () => {
-      const res = await fn();
+      const res = await safeAction(fn);
       if (!res.ok) return setError(res.error ?? "Erro");
       toast.success(success);
       setDraft(null);

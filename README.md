@@ -40,7 +40,7 @@ A senha local fica em `APP_PASSWORD` no `.env.local`.
 |---|---|
 | `npm run db:push` | Aplica o schema (`src/db/schema.ts`) no banco |
 | `npm run db:seed` | Cria as categorias padrão (não duplica) |
-| `npm run db:import -- arquivo.xlsx [--dry-run]` | Importa a planilha antiga; reimportar substitui só o que veio dela |
+| `npm run db:import -- arq1.xlsx arq2.xlsx [--dry-run] [--verbose]` | Importa planilhas antigas (uma aba por mês) e compara com o total de cada aba; reimportar substitui só os meses importados |
 | `npm run db:studio` | Abre o Drizzle Studio para ver/editar os dados |
 
 ## Estrutura

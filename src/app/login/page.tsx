@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { LockKeyhole } from "lucide-react";
+import { CircleAlert, LockKeyhole } from "lucide-react";
 import { login } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,13 +25,20 @@ export default function LoginPage() {
             type="password"
             autoComplete="current-password"
             placeholder="Senha"
-            required
             autoFocus
             className="h-12 pl-9 text-base"
             aria-invalid={state?.ok === false || undefined}
+            aria-describedby="login-error"
           />
         </div>
-        {state?.ok === false && <p className="text-sm text-destructive">{state.error}</p>}
+        <div id="login-error" aria-live="polite">
+          {state?.ok === false && (
+            <p className="flex items-start gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <CircleAlert className="mt-0.5 size-4 shrink-0" />
+              {state.error}
+            </p>
+          )}
+        </div>
         <Button type="submit" size="lg" className="h-12 text-base" disabled={pending}>
           {pending ? "Entrando…" : "Entrar"}
         </Button>

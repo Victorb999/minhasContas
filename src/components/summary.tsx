@@ -1,39 +1,70 @@
 import Link from "next/link";
-import { ArrowDownLeft, ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, ChevronLeft, ChevronRight, FileSpreadsheet } from "lucide-react";
 import { CategoryIcon } from "@/components/category-icon";
 import { formatBRL } from "@/lib/format";
 import type { CategoryDTO, CategoryTotal, Totals } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 
+export function BackLink({ href, label = "Voltar" }: { href: string; label?: string }) {
+  return (
+    <Link
+      href={href}
+      className="-ml-2 flex h-9 w-fit items-center gap-1 rounded-full pr-3 pl-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+    >
+      <ChevronLeft className="size-5" />
+      {label}
+    </Link>
+  );
+}
+
 export function PeriodSwitcher({
   label,
   prevHref,
   nextHref,
+  action,
 }: {
   label: string;
   prevHref: string;
   nextHref: string;
+  action?: React.ReactNode;
 }) {
   const btn =
     "flex size-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent active:bg-accent";
   return (
-    <div className="flex items-center justify-between">
-      <Link href={prevHref} className={btn} aria-label="Anterior" scroll={false}>
+    <div className="flex items-center gap-1">
+      <Link href={prevHref} className={cn(btn, "-ml-2")} aria-label="Anterior" scroll={false}>
         <ChevronLeft className="size-5" />
       </Link>
-      <h1 className="text-lg font-semibold tracking-tight">{label}</h1>
+      <h1 className="min-w-0 truncate text-lg font-semibold tracking-tight lg:text-2xl">{label}</h1>
       <Link href={nextHref} className={btn} aria-label="Próximo" scroll={false}>
         <ChevronRight className="size-5" />
       </Link>
+      {action && <div className="ml-auto">{action}</div>}
     </div>
+  );
+}
+
+/** Link de download da planilha (.xlsx) do período. */
+export function ExcelButton({ href, label }: { href: string; label: string }) {
+  return (
+    <a
+      href={href}
+      download
+      aria-label={label}
+      title={label}
+      className="flex h-9 items-center gap-1.5 rounded-full border bg-card px-3 text-sm font-medium text-income transition-colors hover:bg-accent"
+    >
+      <FileSpreadsheet className="size-4" />
+      Excel
+    </a>
   );
 }
 
 export function BalanceCard({ totals, caption }: { totals: Totals; caption: string }) {
   const balance = totals.income - totals.expense;
   return (
-    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-violet-600 to-purple-800 p-5 text-white shadow-lg shadow-primary/20 dark:from-violet-700 dark:to-purple-950">
-      <div className="pointer-events-none absolute -top-16 -right-10 size-48 rounded-full bg-white/10 blur-2xl" />
+    <div className="relative shrink-0 overflow-hidden rounded-3xl bg-gradient-to-br from-violet-600 to-purple-800 p-5 text-white shadow-lg shadow-primary/20 dark:from-violet-700 dark:to-purple-950">
+      <div className="pointer-events-none absolute -top-16 -right-10 size-48 rounded-full bg-white/10" />
       <p className="text-sm text-white/75">{caption}</p>
       <p className="tabular mt-1 text-3xl font-semibold tracking-tight">{formatBRL(balance)}</p>
       <div className="mt-5 grid grid-cols-2 gap-3">
@@ -106,7 +137,10 @@ export function CategoryBreakdown({
             </span>
           </>
         );
-        const cls = cn("flex items-center gap-3 rounded-xl px-2 py-2", hrefFor && "active:bg-accent hover:bg-accent/60");
+        const cls = cn(
+          "flex items-center gap-3 rounded-xl px-2 py-2",
+          hrefFor && "active:bg-accent hover:bg-accent/60",
+        );
         return (
           <li key={`${r.type}-${r.categoryId}`}>
             {hrefFor ? (

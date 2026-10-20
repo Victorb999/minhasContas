@@ -15,6 +15,7 @@ export const DEFAULT_CATEGORIES: DefaultCategory[] = [
   { name: "Beleza", type: "expense", color: "#d946ef", icon: "sparkles" },
   { name: "Pets", type: "expense", color: "#a16207", icon: "paw-print" },
   { name: "Educação", type: "expense", color: "#3b82f6", icon: "graduation-cap" },
+  { name: "Vestuário", type: "expense", color: "#06b6d4", icon: "shirt" },
   { name: "Casa", type: "expense", color: "#84cc16", icon: "sofa" },
   { name: "Presentes", type: "expense", color: "#f43f5e", icon: "gift" },
   { name: "Doações", type: "expense", color: "#10b981", icon: "hand-heart" },

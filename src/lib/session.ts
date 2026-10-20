@@ -6,6 +6,17 @@ export const SESSION_MAX_AGE = 60 * 60 * 24 * 180; // 180 dias
 
 const encoder = new TextEncoder();
 
+/** Mensagem amigável quando faltam variáveis de ambiente de autenticação; null se está tudo certo. */
+export function authConfigError(): string | null {
+  const missing = [];
+  if (!process.env.APP_PASSWORD) missing.push("APP_PASSWORD");
+  const s = process.env.AUTH_SECRET;
+  if (!s || s.length < 16) missing.push("AUTH_SECRET (mín. 16 caracteres)");
+  return missing.length
+    ? `Servidor sem configuração: defina ${missing.join(" e ")} nas variáveis de ambiente e faça um redeploy.`
+    : null;
+}
+
 function secret() {
   const s = process.env.AUTH_SECRET;
   if (!s || s.length < 16) throw new Error("AUTH_SECRET ausente ou muito curto (mín. 16 caracteres)");
@@ -40,6 +51,8 @@ export async function verifySessionToken(token: string | undefined) {
   if (!token) return false;
   const [exp, sig] = token.split(".");
   if (!exp || !sig || Number(exp) < Date.now() / 1000) return false;
+  // Sem segredo configurado nenhuma sessão é válida; o login explica o motivo.
+  if (authConfigError()) return false;
   return safeEqual(sig, await hmac(`session:${exp}`));
 }
 

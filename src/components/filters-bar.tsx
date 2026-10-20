@@ -4,7 +4,15 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Download, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { filtersToSearch } from "@/lib/filters";
 import { addDaysISO, monthRange, shiftMonth, todayISO } from "@/lib/format";
 import type { CategoryDTO, Filters } from "@/lib/queries";
@@ -54,7 +62,15 @@ const PERIODS: { value: Period; label: string }[] = [
   { value: "custom", label: "Personalizado" },
 ];
 
-export function FiltersBar({ filters, categories }: { filters: Filters; categories: CategoryDTO[] }) {
+export function FiltersBar({
+  filters,
+  categories,
+  backHref,
+}: {
+  filters: Filters;
+  categories: CategoryDTO[];
+  backHref?: string | null;
+}) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [q, setQ] = useState(filters.q ?? "");
@@ -62,7 +78,8 @@ export function FiltersBar({ filters, categories }: { filters: Filters; categori
   const period = customPeriod ? "custom" : detectPeriod(filters);
 
   function apply(next: Filters) {
-    const qs = filtersToSearch(next);
+    // Mantém o "voltar" para a tela de origem enquanto os filtros mudam.
+    const qs = [filtersToSearch(next), backHref && `voltar=${encodeURIComponent(backHref)}`].filter(Boolean).join("&");
     startTransition(() => router.replace(qs ? `/lancamentos?${qs}` : "/lancamentos", { scroll: false }));
   }
 
@@ -165,7 +182,8 @@ export function FiltersBar({ filters, categories }: { filters: Filters; categori
           onValueChange={(v) => {
             const p = v as Period;
             setCustomPeriod(p === "custom");
-            if (p !== "custom") apply({ ...filters, ...periodRange(p), ...(p === "all" && { from: undefined, to: undefined }) });
+            if (p !== "custom")
+              apply({ ...filters, ...periodRange(p), ...(p === "all" && { from: undefined, to: undefined }) });
           }}
         >
           <SelectTrigger className="h-10 w-full">
